@@ -1,45 +1,78 @@
 <template>
     <header>
-        <h1>Travel Days</h1>
+        <h1 class="text-center">Travel Days</h1>
     </header>
 
     <main>
-        <div>
-            <label for="travel-days-paste">
-                paste here:
-            </label>
-            <textarea id="travel-days-paste"
-                v-model="travelDaysInput"
-                name="travel_days_paste"
-                rows="4"
-                cols="50"
-            >
-            </textarea>
-            <button @click.prevent="setTravelDays()">Submit</button>
+        <div class="m-auto text-center">
+            <div v-if="showPasteInput">
+                <p>To start, either paste your travel days or enter custom trips.</p>
+                <p class="mt-3">
+                    To get your past travel days, visit U.S. Customs and Border Protection I94
+                    <br />
+                    travel history site here:
+                    <a href="https://i94.cbp.dhs.gov/search/history-search"
+                       class="btn-link"
+                    >
+                        https://i94.cbp.dhs.gov/search/history-search
+                    </a>
+                </p>
 
-            <div>
-                <h2>Days Display</h2>
-                <br />
+                <p>
+                    After entering your passport information and retrieving the data,
+                    <br />
+                    use your cursor to highlight the table headings and all the rows.
+                    <br />
+                    Then copy and paste into the below input.
+                </p>
+
+                <p>*DO NOT REFORMAT AFTER PASTING*</p>
+
+
+                <textarea id="travel-days-paste"
+                    v-model="travelDaysInput"
+                    name="travel_days_paste"
+                    rows="4"
+                    cols="50"
+                    class="mb-3 mt-3 m-0-auto d-block"
+                >
+                </textarea>
+                <button @click.prevent="setTravelDays()">
+                    Submit
+                </button>
+
+                <p>------------- OR ------------</p>
+
+                <a
+                    class="btn-link text-center"
+                    @click="enterCustom()"
+                >
+                    Enter custom trips
+                </a>
+
+            </div>
+            <div v-else class="m-0-auto">
+                <button @click.prevent="showPasteInput = true">Back</button>
                 <p>Total days allowed: {{ maxDaysAllowed }}</p>
                 <br />
-                <table>
+                <table id="trips-table" class="m-0-auto text-left">
                     <thead>
                         <tr>
                             <th>Arrival</th>
                             <th>Departure</th>
-                            <th>Net Days</th>
-                            <th>Gross Days</th>
+                            <th>Total Days</th>
+                            <th>Within Past 12 Months</th>
                             <th></th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-if="allTrips.length === 0">
-                            <td colspan="4">No trips found</td>
+                            <td colspan="4" class="text-center">No trips found</td>
                         </tr>
                         <tr>
-                            <td colspan="4">
+                            <td colspan="4" class="text-center">
                                 <a
-                                    class="btn-link text-center"
+                                    class="btn-link"
                                     @click="addTrip()"
                                 >
                                     + Add Trip
@@ -127,13 +160,11 @@
 </template>
 
 <script>
-import moment from 'moment';
-// import { CalendarView, CalendarViewHeader } from "vue-simple-calendar"
-    //
-    // import "../node_modules/vue-simple-calendar/dist/style.css"
+    import moment from 'moment';
     export default {
         data() {
             return {
+                showPasteInput: true,
                 travelDaysInput: '',
                 travelTrips: [],
                 startDate: moment().startOf('day').format('YYYY-MM-DD'),
@@ -188,15 +219,12 @@ import moment from 'moment';
                         newTripObject.totalDays = this.createDate(newTripObject.departure).diff(newTripObject.arrival, 'days') + 1;
 
                         if (this.oneYearAgo.isBetween(this.createDate(newTripObject.arrival), this.createDate(newTripObject.departure), '[]')) {
-                            console.log('Trip partially in last year/current year', newTripObject);
                             // if a trip is partially in last year/current year
                             newTripObject.daysWithinLastYear = this.createDate(newTripObject.departure).diff(this.oneYearAgo, 'days') + 1;
                         } else if (this.createDate(newTripObject.departure).isAfter(this.oneYearAgo)) {
-                            console.log('Trip fully in current year', newTripObject);
                             // if a trip is fully in current year
                             newTripObject.daysWithinLastYear = this.createDate(newTripObject.departure).diff(newTripObject.arrival, 'days') + 1;
                         } else {
-                            console.log('Trip fully in last year', newTripObject);
                             // if a trip is fully in last year
                             newTripObject.daysWithinLastYear = 0;
                         }
@@ -235,12 +263,20 @@ import moment from 'moment';
 
         methods: {
             addTrip() {
+                let arrival = moment().startOf('day').add(1, 'days').format('YYYY-MM-DD');
+                let departure = moment().startOf('day').add(2, 'days').format('YYYY-MM-DD');
+
+                if (this.customTrips.length > 0) {
+                    arrival = moment(this.customTrips[0].departure).add(1, 'days').format('YYYY-MM-DD');
+                    departure = moment(arrival).add(1, 'days').format('YYYY-MM-DD');
+                }
+
                 this.customTrips.splice(0, 0, {
                     id: `custom-${this.customTrips.length}`,
-                    departure: this.createDate(),
-                    arrival: this.createDate().add(1, 'days'),
-                    daysWithinLastYear: 1,
-                    totalDays: 1,
+                    arrival,
+                    departure,
+                    daysWithinLastYear: 2,
+                    totalDays: 2,
                     custom: 1,
                     partialTravel: 0
                 });
@@ -290,7 +326,13 @@ import moment from 'moment';
                 this.travelTrips = this.textToArrayOfObjects(this.travelDaysInput);
                 localStorage.setItem('trip-input', JSON.stringify(this.travelDaysInput));
 
+                this.showPasteInput = false;
                 this.allTrips = this.groupedTrips;
+            },
+
+            enterCustom() {
+                this.showPasteInput = false;
+                this.allTrips = [];
             },
 
             getMinDate(index) {
@@ -343,37 +385,8 @@ import moment from 'moment';
     }
 </script>
 <style>
-    .highlight {
-        background-color: #c9beff;
-    }
-
-    .text-right {
-        text-align: right;
-    }
-
-    .btn-primary {
-        background-color: #007bff;
-        border-color: #007bff;
-    }
-
-    .btn-danger {
-        background-color: #dc3545;
-        border-color: #dc3545;
-    }
-
-    .btn {
-        display: inline-block;
-        font-weight: 400;
-        text-align: center;
-        white-space: nowrap;
-        vertical-align: middle;
-        border-radius: .2rem;
-    }
-
-    .btn-link {
-        font-weight: 400;
-        color: #007bff;
-        text-decoration: none;
-        cursor: pointer;
+    #trips-table {
+        min-width: 700px;
+        border-collapse: collapse;
     }
 </style>
